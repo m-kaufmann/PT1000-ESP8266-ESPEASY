@@ -46,6 +46,8 @@ Hier wurde der Widerstand ersetzt durch:
 
 4.7 kΩ || 47 kΩ ≈ 4.27 kΩ
 
+Ich habe den SMD-Widerstand auf dem Bord "abgelötet" und durch einen die beiden parallel geschalteten "normalen" Widerstände ersetzt. Etwas "fummelig" aber wenn man die neuen Widerstände auf dem Bord noch mit etwas Heißkleber fixiert, passt alles.
+
 Wichtig:  
 Nach dem Austausch sollten die Referenzwiderstände **gemessen** werden.  
 Der gemessene Wert kann anschließend **exakt in ESPEasy eingetragen werden**, um die Messgenauigkeit zu verbessern.
@@ -97,11 +99,13 @@ Diese Leitungen werden mit allen vier MAX31865 verbunden.
 | 3.3V | MAX31865 VCC |
 | GND | MAX31865 GND |
 
+Die Spannung (3.3V) kommt direkt vom ESP8266.
+
 ---
 
 # Firmware
 
-Die Firmware basiert auf **ESPEasy**.
+Die Firmware basiert auf **ESPEasy**. Bei mir Build: ESP_Easy_mega_20260121_normal_ESP8266_4M1M Jan 21 2026
 
 Für jeden MAX31865 wird ein eigenes **Device** angelegt.
 
@@ -129,6 +133,3 @@ Eigenschaften:
 - kompakte Bauform
 - einfache Montage
 
-Die STL-Dateien befinden sich im Ordner:
-
-/3dcase
