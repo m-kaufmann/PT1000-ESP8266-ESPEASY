@@ -3,7 +3,7 @@
 Dieses Projekt beschreibt eine einfache und kostengünstige Lösung zur Messung von **vier Temperaturen mit PT1000-Sensoren**.
 
 Die Sensoren werden über **MAX31865 RTD-Interface-Module** ausgelesen und von einem **ESP8266 (Wemos D1 mini)** verarbeitet.  
-Die Messwerte werden anschließend über **MQTT** bereitgestellt.
+Die Messwerte werden anschließend in **Home Assistant** integriert und können optional per **MQTT** weitergegeben werden.
 
 Besonderheit dieses Projekts ist ein **kompaktes 3D-druckbares Gehäuse**, das speziell für diese Kombination entworfen wurde und Platz für:
 
@@ -23,7 +23,23 @@ Das System besteht aus:
 - 4 × MAX31865 RTD-Interface
 - 4 × PT1000 Sensoren
 - gemeinsamem SPI-Bus
-- MQTT-Anbindung
+- Integration in Home Assistant
+- optionalem MQTT-Export
+
+---
+
+# ⚠️ Wichtiger Hinweis zur Verdrahtung
+
+Jeder PT1000 muss **mit beiden Leitungen ausschließlich an "sein" MAX31865-Modul angeschlossen werden**.
+
+👉 Eine gemeinsame Rückleitung für mehrere Sensoren ist **nicht zulässig**.
+
+Grund:
+- führt zu Fehlmessungen
+- erzeugt sporadische Faults
+- kann komplette Messketten stören
+
+👉 Jeder Sensor benötigt eine **separate Zweidrahtleitung direkt zum jeweiligen MAX-Modul**
 
 ---
 
@@ -35,6 +51,8 @@ Verwendete Komponenten:
 - 4 × **MAX31865 RTD Interface**
 - 4 × **PT1000 Temperaturfühler**
 
+---
+
 ## Referenzwiderstand
 
 Viele MAX31865-Boards sind standardmäßig für **PT100** ausgelegt  
@@ -43,24 +61,23 @@ Viele MAX31865-Boards sind standardmäßig für **PT100** ausgelegt
 Für PT1000 muss der Referenzwiderstand auf etwa **4.3 kΩ** geändert werden.
 
 Hier wurde der Widerstand ersetzt durch:
-
 4.7 kΩ || 47 kΩ ≈ 4.27 kΩ
 
-Ich habe den SMD-Widerstand auf dem Board "abgelötet" und durch die beiden parallel geschalteten Drahtwiderstände ersetzt. Etwas "fummelig" aber wenn man die neuen Widerstände auf dem Board noch mit etwas Heißkleber fixiert, passt alles.
+
+Der originale SMD-Widerstand wurde entfernt und durch zwei parallel geschaltete Drahtwiderstände ersetzt.
 
 Wichtig:  
 Nach dem Austausch sollten die Referenzwiderstände **gemessen** werden.  
-Der gemessene Wert kann anschließend **exakt in ESPEasy eingetragen werden**, um die Messgenauigkeit zu verbessern.
+Diese Werte werden anschließend **in ESPHome eingetragen**.
 
-Beispiel der tatsächlich gemessenen Referenzwerte in diesem Aufbau:
+### Gemessene Referenzwerte
 
-Sensor 1: 4247 Ω
-Sensor 2: 4265 Ω
-Sensor 3: 4267 Ω
-Sensor 4: 4267 Ω
-
-
-Diese Werte werden jeweils im entsprechenden ESPEasy-Device als **Rref** eingetragen.
+| Sensor | Rref |
+|--------|------|
+| Sensor 1 | 4247 Ω |
+| Sensor 2 | 4265 Ω |
+| Sensor 3 | 4267 Ω |
+| Sensor 4 | 4260 Ω |
 
 ---
 
@@ -73,11 +90,9 @@ Jedes Modul besitzt jedoch eine eigene **Chip-Select Leitung**.
 
 | ESP8266 Pin | Funktion |
 |--------------|----------|
-| D5 | SCK |
-| D6 | MISO |
-| D7 | MOSI |
-
-Diese Leitungen werden mit allen vier MAX31865 verbunden.
+| D5 (GPIO14) | SCK |
+| D6 (GPIO12) | MISO |
+| D7 (GPIO13) | MOSI |
 
 ---
 
@@ -85,10 +100,10 @@ Diese Leitungen werden mit allen vier MAX31865 verbunden.
 
 | Sensor | ESP8266 Pin |
 |-------|-------------|
-| MAX31865 #1 | D1 |
-| MAX31865 #2 | D2 |
-| MAX31865 #3 | D0 |
-| MAX31865 #4 | D3 |
+| MAX31865 #1 | D1 (GPIO5) |
+| MAX31865 #2 | D3 (GPIO0) |
+| MAX31865 #3 | D2 (GPIO4) |
+| MAX31865 #4 | D0 (GPIO16) |
 
 ---
 
@@ -96,40 +111,51 @@ Diese Leitungen werden mit allen vier MAX31865 verbunden.
 
 | Signal | Verbindung |
 |------|-------------|
-| 3.3V | MAX31865 VCC |
-| GND | MAX31865 GND |
-
-Die Spannung (3.3V) kommt direkt vom ESP8266.
+| 5.0V | MAX31865 VCC |
+| GND  | MAX31865 GND |
 
 ---
 
-# Firmware
+# Firmware (ESPHome)
 
-Die Firmware basiert auf **ESPEasy**. Bei mir Build: ESP_Easy_mega_20260121_normal_ESP8266_4M1M Jan 21 2026
+Die Firmware basiert auf **ESPHome**.
 
-Für jeden MAX31865 wird ein eigenes **Device** angelegt.
+## Konfiguration
 
-Typische Konfiguration:
+Jeder MAX31865 wird als eigener Sensor betrieben:
 
-- Device: **MAX31865**
 - Sensor: **PT1000**
 - Anschluss: **2-Wire**
-- Referenzwiderstand: gemessener Wert (siehe oben)
-- SPI Pins entsprechend der Verdrahtung
-
-Die Messwerte werden anschließend über **MQTT** veröffentlicht.
+- individueller Referenzwiderstand
+- gemeinsamer SPI-Bus
+- eigener CS-Pin je Modul
 
 ---
 
-# 3D-Druck Gehäuse
+## Signalaufbereitung (Version 1)
 
-Das Repository enthält ein **3D-druckbares Gehäuse**, das speziell für diese Kombination entwickelt wurde.
+Die aktuelle Konfiguration umfasst:
 
-Eigenschaften:
+- Messintervall: **5 Sekunden**
+- Filterung ungültiger Werte:
+  - Kollektoren: **-20 °C bis +200 °C**
+  - Solarleitungen: **0 °C bis +100 °C**
+- Mittelwertbildung über **3 Messungen**
+- Rundung auf **1 Nachkommastelle**
 
-- Platz für **1× D1 mini**
-- Platz für **4× MAX31865**
-- Kabelausgänge für **4 PT1000 Sensoren**
-- kompakte Bauform
-- einfache Montage
+---
 
+# Beispiel YAML (gekürzt)
+
+```yaml
+update_interval: 5000ms
+
+filters:
+  - lambda: |-
+      if (isnan(x)) return {};
+      if (x <= -20.0 || x >= 200.0) return {};
+      return x;
+  - sliding_window_moving_average:
+      window_size: 3
+      send_every: 3
+  - round: 1
